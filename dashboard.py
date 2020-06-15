@@ -59,7 +59,6 @@ app.layout = html.Div([
         className_reject='reject'
     ),
     html.Hr(),
-    dcc.Store(id='raw_data', storage_type='memory'),
     dcc.Store(id='data', storage_type='session'),
     dcc.Store(id='curr_filename', storage_type='session'),
     html.Div([
@@ -98,56 +97,37 @@ def parse_contents(contents, filename):
         return get_df_from_content(decoded.decode('utf-8'))
     except Exception as e:
         logger.error()
-        return html.Div([
-            'There was an error processing this file.'
-        ])
+        raise e
 
 
 @app.callback([
-    Output('data', 'clear_data'),
-    Output('raw_data', 'data'),
+    # Output('data', 'clear_data'),
+    Output('data', 'data'),
     Output('curr_filename', 'data'), 
     Output('instructions', 'children')],
     [Input('datatable-upload', 'contents')],
-    [State('datatable-upload', 'filename'),  
-    State('curr_filename', 'data')]
+    [State('datatable-upload', 'filename')]
 )
-def update_output(contents, new_filename, curr_filename):
+def update_output(contents, new_filename):
     if contents is None:
         clear_data = True
-        raw_data = None
+        data = None
         filename = None
         instructions = 'Subi un historial!'
-        return clear_data, raw_data, filename, instructions
+        return data, filename, instructions
     
-    if new_filename != curr_filename:
     
-        df = parse_contents(contents, new_filename)
-        clear_data = True
-        raw_data = df.to_json(orient='split', index=False)
-        date_format = None
-        instructions = 'Si queres cambiar de conversacion podes subir otra!'
-        
-        return (clear_data, 
-                raw_data, 
-                new_filename,
-                instructions)
-
-
-@app.callback(
-    [Output('raw_data', 'clear_data'), 
-    Output('data', 'data')], 
-    [Input('raw_data', 'data')]
-)
-def parse_raw_data(raw_data):
-    if raw_data is None:
-        raise PreventUpdate
-    else:
-        clear_raw_data = True
-        dff = pd.read_json(raw_data, orient='split')
-        data = add_date_metrics(dff).to_json(
-            date_format='iso', orient='split', index=False)
-    return clear_raw_data, data
+    df = parse_contents(contents, new_filename)
+    df['date'] = pd.to_datetime(df.date)
+    df = add_date_metrics(df)
+    
+    data = df.to_json(
+        date_format='iso', orient='split', index=False)
+    instructions = 'Si queres cambiar de conversacion podes subir otra!'
+    clear_data = True
+    return (data, 
+            new_filename,
+            instructions)
 
 
 def plot(df, filename, hue, y, group_by_author):
@@ -263,4 +243,5 @@ def update_graph(data, hue, y_col, group_by_author, filename):
 
 
 if __name__ == '__main__':
-    app.run_server(port=int(os.environ.get('PORT', '3005')))
+    app.run_server(debug='DEBUG' in os.environ,
+                    port=int(os.environ.get('PORT', '3005')))
