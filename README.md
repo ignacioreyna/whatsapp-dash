@@ -1,7 +1,6 @@
 # whatsapp-dash
 
-* `clone the repo`
-* `python -m venv venv`
-* activate the venv
+* `git clone`
+* `cd whatsapp-dash`
 * `pip install -r requirements.txt`
 * `python dashboard.py`
