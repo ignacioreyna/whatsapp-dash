@@ -1,7 +1,9 @@
 import os
+import sys
 import logging
 import base64
 import io
+import uuid
 import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
@@ -11,6 +13,7 @@ from dash.exceptions import PreventUpdate
 
 import plotly.graph_objects as go
 import pandas as pd
+import feather
 
 from utils import get_df_from_content, get_df_for_plotting, labels_dict, add_date_metrics
 
@@ -18,7 +21,9 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 TEN_MB = 1024*1024*10
-
+CURR_DIR = '/'.join(sys.argv[0].split('/')[:-1])
+if not os.path.exists(f'{CURR_DIR}/cache'):
+    os.mkdir(f'{CURR_DIR}/cache')
 # Loading screen CSS
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css',
                         'https://codepen.io/chriddyp/pen/brPBPO.css']
@@ -59,7 +64,8 @@ app.layout = html.Div([
         className_reject='reject'
     ),
     html.Hr(),
-    dcc.Store(id='data', storage_type='session'),
+    # dcc.Store(id='data', storage_type='session'),
+    dcc.Store(id='session-id', storage_type='session'),
     dcc.Store(id='curr_filename', storage_type='session'),
     html.Div([
         dcc.Loading(id="loading",
@@ -86,7 +92,7 @@ app.layout = html.Div([
                             html.Div(id='graph'), 
                     ],
                     type='circle')
-    ]),
+    ])
 ])
 
 
@@ -101,16 +107,15 @@ def parse_contents(contents, filename):
 
 
 @app.callback([
-    # Output('data', 'clear_data'),
-    Output('data', 'data'),
+    Output('session-id', 'data'),
     Output('curr_filename', 'data'), 
     Output('instructions', 'children')],
     [Input('datatable-upload', 'contents')],
-    [State('datatable-upload', 'filename')]
+    [State('datatable-upload', 'filename'),
+     State('session-id', 'data')]
 )
-def update_output(contents, new_filename):
+def update_output(contents, new_filename, sessionid):
     if contents is None:
-        clear_data = True
         data = None
         filename = None
         instructions = 'Subi un historial!'
@@ -121,11 +126,11 @@ def update_output(contents, new_filename):
     df['date'] = pd.to_datetime(df.date)
     df = add_date_metrics(df)
     
-    data = df.to_json(
-        date_format='iso', orient='split', index=False)
+    sessionid = str(uuid.uuid4()) if not sessionid else sessionid
+    df.reset_index().to_feather(f'{CURR_DIR}/cache/{sessionid}.feather')
+    
     instructions = 'Si queres cambiar de conversacion podes subir otra!'
-    clear_data = True
-    return (data, 
+    return (sessionid, 
             new_filename,
             instructions)
 
@@ -149,16 +154,17 @@ def plot(df, filename, hue, y, group_by_author):
         x = hue if hue else 'year'
         plotting_df = get_df_for_plotting(df=df, x=x, y=y, hue=None, agg_op=agg_op)
     else:
+        x = 'author'
         plotting_df = get_df_for_plotting(
-            df=df, x='author', y=y, hue=hue, agg_op=agg_op)
+            df=df, x=x, y=y, hue=hue, agg_op=agg_op)
     
     data = [go.Bar(
         x=plotting_df.index,
         y=plotting_df[c].values,
         text=c,
         textposition='auto',
-        meta=c,
-        hovertemplate=hovertemplate
+        hovertemplate=hovertemplate,
+        name=c
     )
         for c in plotting_df.columns]
     return html.Div([
@@ -168,10 +174,16 @@ def plot(df, filename, hue, y, group_by_author):
                 'data': data,
                 'layout': {
                     'title': filename[:-4],
-                    'showlegend': False,
+                    'showlegend': x == 'author',
                     'hovermode': 'closest',
                     'height': 800,
                     'xaxis': {'type': 'category'},
+                    'legend': {#'y': 1.1, 
+                            #    'orientation': 'h',
+                            #    'xanchor': 'center',
+                            #    'font': {'size': '15'},
+                               'title': {'text': 'Podes filtrar por autor/a!<br>', 
+                                         'font': {'size': '20'}}}
                 }
             }
         )
@@ -222,17 +234,19 @@ def group_by_author_checklist(group_by_author, hue):
     Output('xaxis-columns-wrapper', 'children'),
     Output('yaxis-columns-wrapper', 'children'),
     Output('group_by_author_wrapper', 'children')],
-    [Input('data', 'data'),
+    [Input('session-id', 'data'),
     Input('xaxis-columns', 'value'), 
     Input('yaxis-columns', 'value'), 
     Input('group_by_author', 'value')],
     [State('curr_filename', 'data')]
 )
-def update_graph(data, hue, y_col, group_by_author, filename):
-    if not data:
+def update_graph(sessionid, hue, y_col, group_by_author, filename):
+    if not sessionid:
         raise PreventUpdate
     else:
-        dff = pd.read_json(data, orient='split')
+        # dff = pd.read_json(data, orient='split')
+        # dff = feather.read_dataframe(f'cache/{sessionid}.feather')
+        dff = pd.read_feather(f'{CURR_DIR}/cache/{sessionid}.feather').drop('index', axis=1)
         group_by_author = [] if not hue else group_by_author
         x_dropdown = html.Div(dims_dropdown(dff, hue))
         y_dropdown = html.Div(metrics_dropdown(y_col))
