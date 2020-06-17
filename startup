@@ -1,0 +1,8 @@
+#!/bin/bash
+
+export PORT=80
+export HOST=0.0.0.0
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+pip install -r $DIR/requirements.txt
+mkdir -p $DIR/cache
+python3 $DIR/dashboard.py > /dev/null 2>&1 &

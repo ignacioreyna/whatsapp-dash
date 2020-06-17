@@ -22,8 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 TEN_MB = 1024*1024*10
 CURR_DIR = '/'.join(sys.argv[0].split('/')[:-1])
-if not os.path.exists(f'{CURR_DIR}/cache'):
-    os.mkdir(f'{CURR_DIR}/cache')
+
 # Loading screen CSS
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css',
                         'https://codepen.io/chriddyp/pen/brPBPO.css']
@@ -52,8 +51,11 @@ app.layout = html.Div([
         id='datatable-upload',
         children=html.Div([
             html.P(['Arrastra y solta o ',
-                    html.A('elegi un archivo'), '. Tiene que ser .txt']),
-            html.P(u'Tamaño maximo: 10 MB')
+                    html.A('elegi un archivo')]),
+            html.P(['Aca podes ver como ', 
+                    html.A('exportar un historial de chat', 
+                            href='https://faq.whatsapp.com/android/chats/how-to-save-your-chat-history?lang=es', 
+                            target="_blank")])
         ]),
         style={
             'width': '25%', 'height': '100%', 'lineHeight': '60px',
@@ -115,7 +117,7 @@ def parse_contents(contents):
     Output('error_parsing', 'children')],
     [Input('datatable-upload', 'contents')],
     [State('datatable-upload', 'filename'),
-     State('session-id', 'data')]
+    State('session-id', 'data')]
 )
 def update_output(contents, new_filename, sessionid):
     if contents is None:
@@ -181,11 +183,11 @@ def plot(df, filename, hue, y, group_by_author):
                     'hovermode': 'closest',
                     'height': 800,
                     'xaxis': {'type': 'category'},
-                    'legend': {'x': 0.5,
-                               'y': 1.05, 
-                               'orientation': 'h',
-                               'xanchor': 'center',
-                               'font': {'size': '15'}}
+                    'legend': { 'x': 0.5,
+                                'y': 1.05, 
+                                'orientation': 'h',
+                                'xanchor': 'center',
+                                'font': {'size': '15'}}
                 }
             }
         )
@@ -257,6 +259,6 @@ def update_graph(sessionid, hue, y_col, group_by_author, filename, error):
         
         return figure, x_dropdown, y_dropdown, author_checklist
 
-
+is_prod = 'PORT' in os.environ and os.getenv('PORT') == '80'
 if __name__ == '__main__':
-    app.run_server(debug='DEBUG' in os.environ)
+    app.run_server(debug=not is_prod)

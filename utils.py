@@ -23,7 +23,8 @@ metrics_dict = dict(
   msg='Mensajes',
   words='Palabras',
   wpm='Palabras por mensaje',
-  starting='Conversaciones iniciadas'
+  starting='Conversaciones iniciadas',
+  media='Audios, fotos y videos'
 )
 
 
@@ -31,7 +32,8 @@ metric_agg_op = dict(
   msg='count',
   words='sum',
   wpm='mean',
-  starting='sum'
+  starting='sum',
+  media='sum'
 )
 
 
@@ -108,25 +110,33 @@ def add_words_by_msg(df):
     return df
 
 
-def add_date_metrics(df):
+def add_media_count(df):
+    df['media'] = ((df.msg == '<Multimedia omitido>') | (df.msg == '<Media omitted>')).astype(int)
+    return df
+
+
+def add_date_dimensions(df):
   df = add_date_info(df)
   df = add_started_conv(df)
   return df
 
 
-def get_df_from_filename(filename):
-    df = create_df(read_file(filename))
-    df = add_msg_author(df)
-    df = add_words_by_msg(df)
-    # df = add_date_metrics(df)
-    return df
-  
-def get_df_from_content(content):
-  df = create_df(read_stringio(content))
+def add_dimensions(df):
   df = add_msg_author(df)
   df = add_words_by_msg(df)
-  df = add_date_metrics(df)
+  df = add_date_dimensions(df)
+  df = add_media_count(df)
   return df
+
+
+def get_df_from_filename(filename):
+    df = create_df(read_file(filename))
+    return add_dimensions(df)
+
+
+def get_df_from_content(content):
+  df = create_df(read_stringio(content))
+  return add_dimensions(df)
 
 
 def get_df_for_plotting(df, x, y, hue=None):
