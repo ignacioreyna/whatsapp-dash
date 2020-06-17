@@ -1,46 +1,55 @@
 import re
 import datetime
+import random
 import pandas as pd
+import pydateinfer as dateinfer
 pd.options.mode.chained_assignment = None
 
 
-labels_dict = dict(year=u'Año',
-                   month='Mes',
-                   day='Dia del mes',
-                   hour='Hora del dia',
-                   dayofweek='Dia de la semana',
-                   weekofyear=u'Semana del año',
-                   quarter='Trimestre',
-                   year_week=u'Año-semana',
-                   year_month=u'Año-mes'
-                   )
+dimensions_dict = dict(
+  year=u'Año',
+  month='Mes',
+  day='Dia del mes',
+  hour='Hora del dia',
+  dayofweek='Dia de la semana',
+  weekofyear=u'Semana del año',
+  quarter='Trimestre',
+  year_week=u'Año-semana',
+  year_month=u'Año-mes'
+)
 
-# In some cases, whatsapp exports chats with a trailing comma in the dates.
-def clean_file(filename):
-    # regex that captures commas in strings like mm/dd/yy,
-    trailing_comma = r"(?<=\/[0-9]{2}),"
-    with open(filename) as f:
-        file_str = f.read()
-        file_str = re.sub(trailing_comma, '', file_str)
-    with open(filename, "w") as f:
-        f.write(file_str)
 
-def clean_stringIO(content):
-  trailing_comma = r"(?<=\/[0-9]{2}),"
-  file_str = re.sub(trailing_comma, '', content)
-  return file_str
+metrics_dict = dict(
+  msg='Mensajes',
+  words='Palabras',
+  wpm='Palabras por mensaje',
+  starting='Conversaciones iniciadas'
+)
+
+
+metric_agg_op = dict(
+  msg='count',
+  words='sum',
+  wpm='mean',
+  starting='sum'
+)
+
 
 def read_file(filename):
     """Reads the file and return as as stripped list"""
+    trailing_comma = r"(?<=\/[0-9]{2}),"
     with open(filename) as file:
         fr = file.readlines()
-        file_stripped = [line.strip() for line in fr]
+        file_stripped = [re.sub(trailing_comma, '', line.strip()) for line in fr]
         return file_stripped
-      
+
+
 def read_stringio(content):
-  content = clean_stringIO(content)
+  trailing_comma = r"(?<=\/[0-9]{2}),"
+  content = re.sub(trailing_comma, '', content)
   content_stripped = [line.strip() for line in content.split('\n')]
   return content_stripped
+
 
 def create_df(stripped_data):
     """Returns df with cols date and msg"""
@@ -56,8 +65,7 @@ def create_df(stripped_data):
                                     for x in line_splitted[0].split("/")]))
               msg = line_splitted[1]
               msgs.append(msg)
-    df = pd.DataFrame(data=[dates, msgs]).T
-    df.columns = ["date", "msg"]
+    df = pd.DataFrame({'date': dates, 'msg': msgs})
     return df
 
 
@@ -66,19 +74,14 @@ def add_msg_author(df):
     df = df[df["msg"].str.contains(":")]
     # maxsplit=1 so we dont split in case it was inside a message
     df[["author", "msg"]] = df.msg.str.split(": ", 1, expand=True)
-    
-    #TODO remove this specific replace
-    df["author"] = df["author"].str.replace(
-        "\+54 9 11 2871-3647", "Eric Villadeza")  # Only for lospi.txt
-    df["author"] = df["author"].str.replace(
-        "\+54 9 11 4191-0068", "Herni Beres")
-    #TODO remove this specific replace
-    
-    return df.dropna()
+    return df.dropna().reset_index()
 
 
 def add_date_info(df):
-    # pd.to_datetime(df["date"], format=date_format)
+    N = len(df)
+    sample_dates = [df.date[i] for i in random.sample(range(N), N if N < 50 else 50)]
+    dateformat = dateinfer.infer(sample_dates)
+    df['date'] = pd.to_datetime(df["date"], format=dateformat)
     
     L = ['year', 'month', 'day', 'hour', 'weekofyear', 'quarter']
 # define generator expression of series, one for each attribute
@@ -94,7 +97,8 @@ def add_date_info(df):
 def add_started_conv(df):
     df["tt_prev"] = (df["date"]-df["date"].shift(1)).astype('timedelta64[h]')
     df["starting"] = df["tt_prev"] > 6
-    df["days_to_prev_msg"] = df["tt_prev"] // 24
+    df['starting'] = df.starting.astype(int)
+    # df["days_to_prev_msg"] = df["tt_prev"] // 24
     df = df.drop("tt_prev", axis=1)
     return df
 
@@ -104,28 +108,28 @@ def add_words_by_msg(df):
     return df
 
 
+def add_date_metrics(df):
+  df = add_date_info(df)
+  df = add_started_conv(df)
+  return df
+
+
 def get_df_from_filename(filename):
-    clean_file(filename)
     df = create_df(read_file(filename))
     df = add_msg_author(df)
     df = add_words_by_msg(df)
-    # df = add_date_info(df)
+    # df = add_date_metrics(df)
     return df
   
 def get_df_from_content(content):
   df = create_df(read_stringio(content))
   df = add_msg_author(df)
   df = add_words_by_msg(df)
-  # df = add_date_info(df)
+  df = add_date_metrics(df)
   return df
 
 
-def add_date_metrics(df):
-  df = add_date_info(df)
-  # df = add_started_conv(df)
-  return df
-
-def get_df_for_plotting(df, x, y, hue, is_grouped=False, agg_op='count', zfill=True):
+def get_df_for_plotting(df, x, y, hue=None):
   '''
 Functionality to transform dataframe into plotly required format.
 
@@ -156,6 +160,13 @@ Returns:
   if not y or not isinstance(y, str):
     raise ValueError('y value should be a column present in the dataframe')
 
+  if y in metric_agg_op:
+    agg_op = metric_agg_op[y]
+  else:
+    raise ValueError('This metric is not supported yet')
+  
+  y = 'words' if y == 'wpm' else y
+
   df = df.copy()
   cols = [x, y] if not hue else [x, hue, y]
   df = df.reset_index()[cols]
@@ -164,17 +175,10 @@ Returns:
   new_index = sorted(list(set(df[hue]))) if hue else list(range(1))
   groupping_cols = cols.copy()
   groupping_cols.remove(y)
-
-  if not is_grouped:
-    df = df.groupby(groupping_cols)
-    if not agg_op or not isinstance(agg_op, str):
-      raise ValueError('You should specify how to aggregate the ' +
-                       'dataframe after groupping with agg_op param')
-    else:
-      agg = getattr(df, agg_op)
-      df = agg()
-  else:
-    df = df.set_index(groupping_cols)
+  
+  df = df.groupby(groupping_cols)
+  agg = getattr(df, agg_op)
+  df = agg()
 
   trans_df = pd.DataFrame(columns=new_cols, index=new_index)
 
@@ -186,11 +190,6 @@ Returns:
       trans_df.at[0, idx] = df.loc[idx][y]
       
   if not hue:
-    trans_df.index = [labels_dict[x]]
+    trans_df.index = [dimensions_dict[x]]
 
-  return trans_df.fillna(0) if zfill else trans_df
-
-
-
-
-# add_date_info(get_df_from_filename('../Downloads/toto_pbs.txt'), '%d/%m/%y  %H:%M').to_csv('toto_pbs.csv')
+  return trans_df.fillna(0)

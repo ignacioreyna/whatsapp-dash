@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import feather
 
-from utils import get_df_from_content, get_df_for_plotting, labels_dict, add_date_metrics
+from utils import get_df_from_content, get_df_for_plotting, dimensions_dict, metrics_dict
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -42,6 +42,7 @@ app.layout = html.Div([
                 'textAlign': 'center', 'margin': 'auto'
             }),
     html.H5(id='instructions',
+            children='Subi un historial!',
             style={
                 'width': '50%', 'height': '60px', 'lineHeight': '60px',
                 'borderWidth': '1px',
@@ -63,6 +64,7 @@ app.layout = html.Div([
         accept='.txt',
         className_reject='reject'
     ),
+    html.Div(id='error_parsing'),
     html.Hr(),
     # dcc.Store(id='data', storage_type='session'),
     dcc.Store(id='session-id', storage_type='session'),
@@ -96,67 +98,68 @@ app.layout = html.Div([
 ])
 
 
-def parse_contents(contents, filename):
+def parse_contents(contents):
     content_type, content_string = contents.split(',')
     decoded = base64.b64decode(content_string)
     try:
         return get_df_from_content(decoded.decode('utf-8'))
     except Exception as e:
-        logger.error()
-        raise e
+        logger.error(e)
+        return None
 
 
 @app.callback([
     Output('session-id', 'data'),
     Output('curr_filename', 'data'), 
-    Output('instructions', 'children')],
+    Output('instructions', 'children'), 
+    Output('error_parsing', 'children')],
     [Input('datatable-upload', 'contents')],
     [State('datatable-upload', 'filename'),
      State('session-id', 'data')]
 )
 def update_output(contents, new_filename, sessionid):
     if contents is None:
-        data = None
+        sessionid = None
         filename = None
         instructions = 'Subi un historial!'
-        return data, filename, instructions
+        error = None
+        return sessionid, filename, instructions, error
     
     
-    df = parse_contents(contents, new_filename)
-    df['date'] = pd.to_datetime(df.date)
-    df = add_date_metrics(df)
+    df = parse_contents(contents)
+    if df is None:
+        error = html.Div(children=[ html.Br(),
+                                    'Ocurrio un error! Por favor intenta de nuevo. Si el error persiste, contactate a ',
+                                    html.A('iganre@gmail.com', href='mailto:iganre@gmail.com')],
+                        style={'textAlign': 'center', 'fontSize': 30})
+        return sessionid, None, None, error
     
     sessionid = str(uuid.uuid4()) if not sessionid else sessionid
-    df.reset_index().to_feather(f'{CURR_DIR}/cache/{sessionid}.feather')
+    
+    file_location = os.path.join(CURR_DIR, 'cache', f'{sessionid}.feather')
+    df.reset_index().to_feather(file_location)
     
     instructions = 'Si queres cambiar de conversacion podes subir otra!'
+    error = None
     return (sessionid, 
             new_filename,
-            instructions)
+            instructions,
+            error)
 
 
 def plot(df, filename, hue, y, group_by_author):
     if not y: 
         y = 'msg'
-    metric = 'mensajes' if y == 'msg' else 'palabras'
+    metric = metrics_dict[y].lower()
     hovertemplate = f'%{{y:.3s}} {metric}<extra></extra>'
-    ops = dict(
-        msg='count',
-        words='sum',
-        wpm='mean'
-    )
-    agg_op = ops[y]
-    
-    if y == 'wpm':
-        y = 'words'
         
     if not group_by_author or len(group_by_author) == 0:
         x = hue if hue else 'year'
-        plotting_df = get_df_for_plotting(df=df, x=x, y=y, hue=None, agg_op=agg_op)
+        plotting_df = get_df_for_plotting(df=df, x=x, y=y)
     else:
         x = 'author'
         plotting_df = get_df_for_plotting(
-            df=df, x=x, y=y, hue=hue, agg_op=agg_op)
+            df=df, x=x, y=y, hue=hue)
     
     data = [go.Bar(
         x=plotting_df.index,
@@ -169,7 +172,7 @@ def plot(df, filename, hue, y, group_by_author):
         for c in plotting_df.columns]
     return html.Div([
         dcc.Graph(
-            id='example-graph',
+            id='whatsapp-info',
             figure={
                 'data': data,
                 'layout': {
@@ -178,12 +181,11 @@ def plot(df, filename, hue, y, group_by_author):
                     'hovermode': 'closest',
                     'height': 800,
                     'xaxis': {'type': 'category'},
-                    'legend': {#'y': 1.1, 
-                            #    'orientation': 'h',
-                            #    'xanchor': 'center',
-                            #    'font': {'size': '15'},
-                               'title': {'text': 'Podes filtrar por autor/a!<br>', 
-                                         'font': {'size': '20'}}}
+                    'legend': {'x': 0.5,
+                               'y': 1.05, 
+                               'orientation': 'h',
+                               'xanchor': 'center',
+                               'font': {'size': '15'}}
                 }
             }
         )
@@ -192,12 +194,10 @@ def plot(df, filename, hue, y, group_by_author):
 
 
 def dims_dropdown(df, value):
-    dimensions = filter(lambda x: x not in [
-                        'msg', 'words', 'author', 'date'], df.columns)
     return dcc.Dropdown(
         id='xaxis-columns',
-        options=[{'label': labels_dict[i], 'value': i}
-                for i in dimensions],
+        options=[{'label': v, 'value': k}
+                for k, v in dimensions_dict.items()],
         placeholder='Eje x',
         value=value if value else 'year',
         clearable=False
@@ -207,9 +207,8 @@ def dims_dropdown(df, value):
 def metrics_dropdown(value):
     return dcc.Dropdown(
         id='yaxis-columns',
-        options=[{'label': 'Mensajes', 'value': 'msg'},
-                {'label': 'Palabras', 'value': 'words'},
-                {'label': 'Palabras por mensaje', 'value': 'wpm'}],
+        options=[{'label': v, 'value': k} 
+                for k, v in metrics_dict.items()],
         placeholder='Eje y',
         value=value if value else 'msg',
         clearable=False
@@ -217,16 +216,17 @@ def metrics_dropdown(value):
 
 
 
-def group_by_author_checklist(group_by_author, hue):
+def group_by_author_checklist(group_by_author):
     return html.Div([
                     dcc.Checklist(
                             id='group_by_author',
-                            options=[{'label': 'Agrupar por autor/a.', 'value': 1, 'disabled': not hue}],
-                            value=[] if not group_by_author or not hue else group_by_author,
-                            style={'width': '50%', 'margin': 'auto', 'textAlign': 'center', 'color': '#8c8c8c' if not hue else '#323232'}),
+                            options=[{'label': 'Agrupar por autor/a.', 'value': 1}],
+                            value=[] if not group_by_author else group_by_author,
+                            style={'width': '50%', 'margin': 'auto', 'textAlign': 'center'}),
                     html.Div(
-                            children='Para agrupar por autor/a debes elegir un valor para el eje x' if not hue else '', 
-                            style={'width': '50%', 'margin': 'auto', 'textAlign': 'center'})])
+                            children=[html.Br(), 'Podes filtrar por autor/a!'] if len(group_by_author) > 0 else '', 
+                            style={'width': '50%', 'margin': 'auto', 'textAlign': 'center', 
+                                    'fontSize': 20})])
 
 
 @app.callback(
@@ -238,24 +238,25 @@ def group_by_author_checklist(group_by_author, hue):
     Input('xaxis-columns', 'value'), 
     Input('yaxis-columns', 'value'), 
     Input('group_by_author', 'value')],
-    [State('curr_filename', 'data')]
+    [State('curr_filename', 'data'), 
+     State('error_parsing', 'children')]
 )
-def update_graph(sessionid, hue, y_col, group_by_author, filename):
+def update_graph(sessionid, hue, y_col, group_by_author, filename, error):
     if not sessionid:
         raise PreventUpdate
+    elif error is not None:
+        return None, None, None, None
     else:
-        # dff = pd.read_json(data, orient='split')
-        # dff = feather.read_dataframe(f'cache/{sessionid}.feather')
-        dff = pd.read_feather(f'{CURR_DIR}/cache/{sessionid}.feather').drop('index', axis=1)
+        file_location = os.path.join(CURR_DIR, 'cache', f'{sessionid}.feather')
+        dff = pd.read_feather(file_location).drop('index', axis=1)
         group_by_author = [] if not hue else group_by_author
         x_dropdown = html.Div(dims_dropdown(dff, hue))
         y_dropdown = html.Div(metrics_dropdown(y_col))
-        author_checklist = group_by_author_checklist(group_by_author, x_dropdown.children.value)
+        author_checklist = group_by_author_checklist(group_by_author)
         figure = plot(dff, filename, hue, y_col, group_by_author)
         
         return figure, x_dropdown, y_dropdown, author_checklist
 
 
 if __name__ == '__main__':
-    app.run_server(debug='DEBUG' in os.environ,
-                    port=int(os.environ.get('PORT', '3005')))
+    app.run_server(debug='DEBUG' in os.environ)
