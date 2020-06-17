@@ -53,18 +53,33 @@ def read_stringio(content):
   return content_stripped
 
 
+def clean_datetime_string(dts):
+  date = dts.lower()
+  NON_BREAKING_SPACE = '\xa0'
+  if NON_BREAKING_SPACE in date:
+    date = date.replace(NON_BREAKING_SPACE, ' ')
+  if 'p. m.' in date:
+    date = date.replace('p. m.', 'PM')
+  elif 'a. m.' in date:
+    date = date.replace('a. m.', 'AM')
+  return date
+
+
 def create_df(stripped_data):
     """Returns df with cols date and msg"""
-    start_regex = r"(?<=\d{2}:\d{2}) - "  # regex to split only strings like HH:MM -
+    start_regex = r"^\d{1,4}[\/-]\d{1,2}[\/-]\d{1,4} \d{1,2}:\d{1,2}"  # regex to split only strings like date time
     dates = []
     msgs = []
     for line in stripped_data:
-        if " - " in line:
-            # maxsplit=1 so we dont split in case it was inside a message
-            line_splitted = re.split(start_regex, line, 1)
+        if re.match(start_regex, line):
+            # line_splitted = re.split(start_regex, line, 1)
+            line_splitted = line.split(' - ', maxsplit=1)
             if len(line_splitted) == 2:
-              dates.append("/".join([x.zfill(2)
-                                    for x in line_splitted[0].split("/")]))
+              date = "/".join([x.zfill(2)
+                              for x in 
+                              clean_datetime_string(line_splitted[0]).split("/")])
+              
+              dates.append(date)
               msg = line_splitted[1]
               msgs.append(msg)
     df = pd.DataFrame({'date': dates, 'msg': msgs})
@@ -74,8 +89,8 @@ def create_df(stripped_data):
 def add_msg_author(df):
     '''Adds msg author and deletes msgs without author'''
     df = df[df["msg"].str.contains(":")]
-    # maxsplit=1 so we dont split in case it was inside a message
-    df[["author", "msg"]] = df.msg.str.split(": ", 1, expand=True)
+    maxsplit=1
+    df[["author", "msg"]] = df.msg.str.split(": ", maxsplit, expand=True)
     return df.dropna().reset_index()
 
 
