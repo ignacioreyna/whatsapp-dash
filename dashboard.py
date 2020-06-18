@@ -4,6 +4,7 @@ import logging
 import base64
 import io
 import uuid
+import random
 import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
@@ -23,11 +24,27 @@ logger = logging.getLogger(__name__)
 TEN_MB = 1024*1024*10
 CURR_DIR = '/'.join(sys.argv[0].split('/')[:-1])
 
+colors = [
+    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', 
+    '#e377c2', '#7f7f7f', '#bcbd22', '#17becf', '#03012d', '#7cf7de', 
+    '#fffe7a', '#db4bda', '#aec7e8', '#ffbb78', '#98df8a', '#ff9896', 
+    '#c5b0d5', '#c49c94', '#f7b6d2', '#c7c7c7', '#dbdb8d', '#bff5ff']  # matplotlib tab20 and some others
+
 # Loading screen CSS
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css',
                         'https://codepen.io/chriddyp/pen/brPBPO.css']
 
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+meta_tags=[{'charset': 'utf-8'}, 
+            {'name': 'description', 'content': 'En esta pagina vas a poder ver las estadisticas de tus conversaciones de WhatsApp'}, 
+            {'name': 'keywords', 'content': 'whatsapp, estadisticas, stats, chat'}, 
+            {'name': 'author', 'content': 'Ignacio Reyna'}, 
+            {'http-equiv': 'expires', 'content': '3600'},
+            {'name':'viewport','content':'width=device-width, initial-scale=1'}]
+
+app = dash.Dash(__name__, 
+                external_stylesheets=external_stylesheets, 
+                meta_tags=meta_tags)
+app.title = 'Whatstat'
 
 server = app.server
 
@@ -80,7 +97,11 @@ app.layout = html.Div([
                                     children=[dcc.Dropdown(id='xaxis-columns',
                                                             style={'display': 'none'})],
                                     style={'width': '20%', 'display': 'inline-block', 'margin': 'auto'}),
-                                html.Div(style={'width': '20%', 'display': 'inline-block', 'margin': 'auto'}), 
+                                html.Div(
+                                    id='normalize_bars_wrapper',
+                                    children=[dcc.Checklist(id='normalize_bars', 
+                                                            style={'display': 'none'})],
+                                    style={'width': '20%', 'display': 'inline-block', 'margin': 'auto', 'verticalAlign': 'top'}), 
                                 html.Div(
                                     id='yaxis-columns-wrapper',
                                     children=[dcc.Dropdown(id='yaxis-columns',
@@ -149,11 +170,14 @@ def update_output(contents, new_filename, sessionid):
             error)
 
 
-def plot(df, filename, hue, y, group_by_author):
+def plot(df, hue, y, group_by_author, normalize_bars):
+    global colors
+    is_normalized = normalize_bars is not None and len(normalize_bars) > 0
     if not y: 
         y = 'msg'
-    metric = metrics_dict[y].lower()
-    hovertemplate = f'%{{y:.3s}} {metric}<extra></extra>'
+    metric = f' {metrics_dict[y].lower()}' if not is_normalized else f"% de l{'a' if 'words' == y or 'media' == y else 'o'}s {metrics_dict[y].lower()}"
+    rounding = '.2f' if is_normalized else ''
+    hovertemplate = f'%{{y:{rounding}}}{metric}<extra></extra>'
         
     if not group_by_author or len(group_by_author) == 0:
         x = hue if hue else 'year'
@@ -169,27 +193,50 @@ def plot(df, filename, hue, y, group_by_author):
         text=c,
         textposition='auto',
         hovertemplate=hovertemplate,
-        name=c
+        name=c,
+        marker_color=colors[index % len(colors)]
     )
-        for c in plotting_df.columns]
+        for index, c in enumerate(plotting_df.columns)]
+    
+    layout = dict(
+        height=820,
+        showlegend=x == 'author',
+        hovermode='closest',
+        xaxis=dict(
+            type='category',
+            rangeslider = {'visible': True}
+        ),
+        yaxis=dict(
+            color='#7f7f7f',
+            gridcolor='#eaeaea'
+        ),
+        paper_bgcolor='white',
+        plot_bgcolor='white',
+        legend=dict(
+            x=0.5,
+            y=1.15,
+            orientation='h',
+            xanchor='center',
+            font=dict(
+                size=15
+            )
+        ),
+        hoverlabel=dict(
+            bgcolor='white',
+            font=dict(
+                size=16,
+                family='Rockwell'
+            )
+        ),
+        barnorm='percent' if is_normalized else None
+    )
+    
+    figure = go.Figure(data=data, layout=layout)
+    
     return html.Div([
         dcc.Graph(
             id='whatsapp-info',
-            figure={
-                'data': data,
-                'layout': {
-                    'title': filename[:-4],
-                    'showlegend': x == 'author',
-                    'hovermode': 'closest',
-                    'height': 800,
-                    'xaxis': {'type': 'category'},
-                    'legend': { 'x': 0.5,
-                                'y': 1.05, 
-                                'orientation': 'h',
-                                'xanchor': 'center',
-                                'font': {'size': '15'}}
-                }
-            }
+            figure=figure
         )
     ])
     
@@ -206,19 +253,28 @@ def dims_dropdown(df, value):
     )
 
 
-def metrics_dropdown(value):
+def metrics_dropdown(value, normalize_bars):
+    is_normalized = normalize_bars is not None and len(normalize_bars) > 0
     return dcc.Dropdown(
         id='yaxis-columns',
-        options=[{'label': v, 'value': k} 
+        options=[{'label': v, 'value': k, 'disabled': is_normalized and k == 'wpm'} 
                 for k, v in metrics_dict.items()],
         placeholder='Eje y',
-        value=value if value else 'msg',
+        value=value if value and not (is_normalized and value == 'wpm') else 'msg',
         clearable=False
     )
 
 
+def normalize_bars_checklist(is_normalized):
+    return dcc.Checklist(
+        id='normalize_bars',
+        options=[{'label': 'Ver en porcentajes', 'value': 1}],
+        value=[] if not is_normalized else is_normalized,
+        style={'textAlign': 'center'}
+    )
 
-def group_by_author_checklist(group_by_author):
+
+def group_by_author_checklist(group_by_author, filename):
     return html.Div([
                     dcc.Checklist(
                             id='group_by_author',
@@ -228,36 +284,46 @@ def group_by_author_checklist(group_by_author):
                     html.Div(
                             children=[html.Br(), 'Podes filtrar por autor/a!'] if len(group_by_author) > 0 else '', 
                             style={'width': '50%', 'margin': 'auto', 'textAlign': 'center', 
-                                    'fontSize': 20})])
+                                    'fontSize': 20}), 
+                    html.Div(id='graph-title',
+                            children=[html.Br(), filename[:-4]], 
+                            style={'width': '50%', 'margin': 'auto', 'textAlign': 'center', 
+                                    'fontSize': 25}),
+                    ])
 
 
 @app.callback(
     [Output('graph', 'children'),
     Output('xaxis-columns-wrapper', 'children'),
     Output('yaxis-columns-wrapper', 'children'),
+    Output('normalize_bars_wrapper', 'children'),
     Output('group_by_author_wrapper', 'children')],
     [Input('session-id', 'data'),
     Input('xaxis-columns', 'value'), 
     Input('yaxis-columns', 'value'), 
+    Input('normalize_bars', 'value'),
     Input('group_by_author', 'value')],
     [State('curr_filename', 'data'), 
      State('error_parsing', 'children')]
 )
-def update_graph(sessionid, hue, y_col, group_by_author, filename, error):
+def update_graph(sessionid, hue, y_col, normalize_bars, group_by_author, filename, error):
     if not sessionid:
         raise PreventUpdate
     elif error is not None:
-        return None, None, None, None
+        return None, None, None, None, None
     else:
         file_location = os.path.join(CURR_DIR, 'cache', f'{sessionid}.feather')
         dff = pd.read_feather(file_location).drop('index', axis=1)
         group_by_author = [] if not hue else group_by_author
         x_dropdown = html.Div(dims_dropdown(dff, hue))
-        y_dropdown = html.Div(metrics_dropdown(y_col))
-        author_checklist = group_by_author_checklist(group_by_author)
-        figure = plot(dff, filename, hue, y_col, group_by_author)
+        y_dropdown = html.Div(metrics_dropdown(y_col, normalize_bars))
+        normalize_checklist = normalize_bars_checklist(normalize_bars)
+        author_checklist = group_by_author_checklist(group_by_author, filename)
         
-        return figure, x_dropdown, y_dropdown, author_checklist
+        y_col = y_dropdown.children.value
+        figure = plot(dff, hue, y_col, group_by_author, normalize_bars)
+        
+        return figure, x_dropdown, y_dropdown, normalize_checklist, author_checklist
 
 is_prod = 'PORT' in os.environ and os.getenv('PORT') == '80'
 if __name__ == '__main__':
