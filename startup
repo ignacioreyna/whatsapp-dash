@@ -6,3 +6,9 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 pip install -r $DIR/requirements.txt
 mkdir -p $DIR/cache
 python3 $DIR/dashboard.py > /dev/null 2>&1 &
+
+if echo $? ; then
+    echo "Successfully started whatstat!"
+else
+    echo "Something went wrong. Could not start."
+fi

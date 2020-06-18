@@ -1,0 +1,15 @@
+#!/bin/bash
+
+PID=$(ps -aux | grep "[p]ython3 /root/whatsapp-dash/dashboard.py" | awk '{print $2}')
+
+if [ -z $PID ]; then
+    echo "Process is not running"
+    exit 0
+fi
+
+
+if kill $PID ; then
+    echo "Succesfully shutted down"
+else
+    echo "Could not shut down"
+fi
