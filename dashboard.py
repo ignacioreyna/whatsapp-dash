@@ -44,7 +44,9 @@ meta_tags=[{'charset': 'utf-8'},
             {'property': 'twtitter:title', 'content': 'Whatstat'},
             {'property': 'og:description', 'content': 'En esta pagina vas a poder ver las estadisticas de tus conversaciones de WhatsApp'}, 
             {'property': 'twitter:description', 'content': 'En esta pagina vas a poder ver las estadisticas de tus conversaciones de WhatsApp'},
-            {'property': 'og:site_name', 'content': 'Whatstat'}]
+            {'property': 'og:site_name', 'content': 'Whatstat'},
+            {'property': 'og:url', 'content': 'http://whatstat.site'},
+            {'property': 'og:type', 'content': 'website'}]
 
 app = dash.Dash(__name__, 
                 external_stylesheets=external_stylesheets, 
