@@ -131,4 +131,3 @@ dmypy.json
 .idea/*
 .vscode/*
 cache/*
-deploy
