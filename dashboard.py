@@ -39,7 +39,12 @@ meta_tags=[{'charset': 'utf-8'},
             {'name': 'keywords', 'content': 'whatsapp, estadisticas, stats, chat'}, 
             {'name': 'author', 'content': 'Ignacio Reyna'}, 
             {'http-equiv': 'expires', 'content': '3600'},
-            {'name':'viewport','content':'width=device-width, initial-scale=1'}]
+            {'name':'viewport','content':'width=device-width, initial-scale=1'},
+            {'property': 'og:title', 'content': 'Whatstat'},
+            {'property': 'twtitter:title', 'content': 'Whatstat'},
+            {'property': 'og:description', 'content': 'En esta pagina vas a poder ver las estadisticas de tus conversaciones de WhatsApp'}, 
+            {'property': 'twitter:description', 'content': 'En esta pagina vas a poder ver las estadisticas de tus conversaciones de WhatsApp'},
+            {'property': 'og:site_name', 'content': 'Whatstat'}]
 
 app = dash.Dash(__name__, 
                 external_stylesheets=external_stylesheets, 
