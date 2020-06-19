@@ -211,12 +211,14 @@ def plot(df, hue, y, group_by_author, normalize_bars):
         for index, c in enumerate(plotting_df.columns)]
     
     layout = dict(
-        height=820,
+        height=700,
         showlegend=x == 'author',
         hovermode='closest',
         xaxis=dict(
             type='category',
-            rangeslider = {'visible': True}
+            rangeslider=dict(
+                visible=False
+            )
         ),
         yaxis=dict(
             color='#7f7f7f',
