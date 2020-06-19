@@ -183,7 +183,7 @@ def plot(df, hue, y, group_by_author, normalize_bars):
     if not y: 
         y = 'msg'
     metric = f' {metrics_dict[y].lower()}' if not is_normalized else f"% de l{'a' if 'words' == y or 'media' == y else 'o'}s {metrics_dict[y].lower()}"
-    rounding = '.2f' if is_normalized else ''
+    rounding = '.2f' if is_normalized else '.2s'
     hovertemplate = f'%{{y:{rounding}}}{metric}<extra></extra>'
         
     if not group_by_author or len(group_by_author) == 0:
