@@ -9,7 +9,7 @@ import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
-import dash_table
+import dash_component_unload as dcu
 from dash.exceptions import PreventUpdate
 
 import plotly.graph_objects as go
@@ -33,6 +33,8 @@ colors = [
 # Loading screen CSS
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css',
                         'https://codepen.io/chriddyp/pen/brPBPO.css']
+
+
 
 meta_tags=[{'charset': 'utf-8'}, 
             {'name': 'description', 'content': 'En esta pagina vas a poder ver las estadisticas de tus conversaciones de WhatsApp'}, 
@@ -92,7 +94,6 @@ app.layout = html.Div([
     ),
     html.Div(id='error_parsing'),
     html.Hr(),
-    # dcc.Store(id='data', storage_type='session'),
     dcc.Store(id='session-id', storage_type='session'),
     dcc.Store(id='curr_filename', storage_type='session'),
     html.Div([
@@ -124,7 +125,9 @@ app.layout = html.Div([
                             html.Div(id='graph'), 
                     ],
                     type='circle')
-    ])
+    ]),
+    html.Div(id='page-listener-dummy'),
+    dcu.DashComponentUnload(id='page-listener')
 ])
 
 
@@ -331,6 +334,20 @@ def update_graph(sessionid, hue, y_col, normalize_bars, group_by_author, filenam
         figure = plot(dff, hue, y_col, group_by_author, normalize_bars)
         
         return figure, x_dropdown, y_dropdown, normalize_checklist, author_checklist
+
+
+@app.callback(
+    Output('page-listener-dummy', 'children'), 
+    [Input('page-listener', 'close')], 
+    [State('session-id', 'data')])
+def deleteCache(close, sessionid):
+    if not close:
+        raise PreventUpdate
+    file_location = os.path.join(CURR_DIR, 'cache', f'{sessionid}.feather')
+    if os.path.isfile(file_location):
+        os.remove(file_location)
+    return None
+
 
 is_prod = 'PORT' in os.environ and os.getenv('PORT') == '80'
 if __name__ == '__main__':
