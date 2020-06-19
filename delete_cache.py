@@ -8,7 +8,6 @@ CACHE_DIR = os.path.join(CURR_DIR, 'cache')
 
 def is_old(age):
     TWO_HOURS = 60 * 60 * 2
-    print(TWO_HOURS)
     return age > TWO_HOURS
 
 
