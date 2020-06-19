@@ -1,6 +1,7 @@
 Brotli==1.0.7
 click==7.1.2
 dash==1.12.0
+dash-component-unload==0.0.2
 dash-core-components==1.10.0
 dash-html-components==1.0.3
 dash-renderer==1.4.1
@@ -9,7 +10,6 @@ feather-format==0.4.1
 Flask==1.1.2
 Flask-Compress==1.5.0
 future==0.18.2
-gunicorn==20.0.4
 itsdangerous==1.1.0
 Jinja2==2.11.2
 MarkupSafe==1.1.1
