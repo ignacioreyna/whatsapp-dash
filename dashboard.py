@@ -48,7 +48,9 @@ meta_tags=[{'charset': 'utf-8'},
             {'property': 'twitter:description', 'content': 'En esta pagina vas a poder ver las estadisticas de tus conversaciones de WhatsApp'},
             {'property': 'og:site_name', 'content': 'Whatstat'},
             {'property': 'og:url', 'content': 'http://whatstat.site'},
-            {'property': 'og:type', 'content': 'website'}]
+            {'property': 'og:type', 'content': 'website'}, 
+            {'property': 'og:image', 'content': 'https://cdn.icon-icons.com/icons2/550/PNG/512/business-color_board-30_icon-icons.com_53475.png'},
+            {'property': 'og:image:type', 'content': 'image/png'}]
 
 app = dash.Dash(__name__, 
                 external_stylesheets=external_stylesheets, 
@@ -340,7 +342,7 @@ def update_graph(sessionid, hue, y_col, normalize_bars, group_by_author, filenam
     Output('page-listener-dummy', 'children'), 
     [Input('page-listener', 'close')], 
     [State('session-id', 'data')])
-def deleteCache(close, sessionid):
+def delete_cache(close, sessionid):
     if not close:
         raise PreventUpdate
     file_location = os.path.join(CURR_DIR, 'cache', f'{sessionid}.feather')
