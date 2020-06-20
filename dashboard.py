@@ -362,7 +362,7 @@ context = None if is_prod else 'adhoc'
 if os.getenv('PORT', None) == '443':
     context = SSL.Context(SSL.TLSv1_2_METHOD)
     context.use_privatekey_file('keys/privkey.pem', SSL.FILETYPE_PEM)
-    context.use_certificate_file('fullchain.pem', SSL.FILETYPE_PEM)
+    context.use_certificate_file('keys/fullchain.pem', SSL.FILETYPE_PEM)
 
 if __name__ == '__main__':
     app.run_server(debug=not is_prod, ssl_context=context)
