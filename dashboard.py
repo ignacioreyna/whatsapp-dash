@@ -11,6 +11,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 import dash_component_unload as dcu
 from dash.exceptions import PreventUpdate
+from OpenSSL import SSL
+
 
 import plotly.graph_objects as go
 import pandas as pd
@@ -52,14 +54,15 @@ meta_tags=[{'charset': 'utf-8'},
             {'property': 'og:image', 'content': 'https://cdn.icon-icons.com/icons2/550/PNG/512/business-color_board-30_icon-icons.com_53475.png'},
             {'property': 'og:image:type', 'content': 'image/png'}]
 
+
 app = dash.Dash(__name__, 
                 external_stylesheets=external_stylesheets, 
                 meta_tags=meta_tags)
 app.title = 'Whatstat'
 
-server = app.server
 
 app.config.suppress_callback_exceptions = True
+
 
 app.layout = html.Div([
     html.H1(id='welcome-msg', 
@@ -353,6 +356,13 @@ def delete_cache(close, sessionid):
     return None
 
 
-is_prod = 'PORT' in os.environ and os.getenv('PORT') == '80'
+is_prod = 'PORT' in os.environ and os.getenv('PORT') in ['80', '443']
+context = SSL.Context(SSL.TLSv1_2_METHOD)
+context = None if is_prod else 'adhoc'
+if os.getenv('PORT', None) == '443':
+    context = SSL.Context(SSL.TLSv1_2_METHOD)
+    context.use_privatekey_file('keys/privkey.pem', SSL.FILETYPE_PEM)
+    context.use_certificate_file('fullchain.pem', SSL.FILETYPE_PEM)
+
 if __name__ == '__main__':
-    app.run_server(debug=not is_prod)
+    app.run_server(debug=not is_prod, ssl_context=context)
