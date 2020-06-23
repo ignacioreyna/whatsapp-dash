@@ -184,7 +184,7 @@ def put_locale_names(df, x, hue=None):
                 new_index.append(f'{y}-{day_names[int(dow)]}')
             df = df.set_index(pd.Series(new_index))
         elif hue == 'month':
-            df = df.set_index(pd.Series([month_names[m] for m in df.index]))
+            df = df.set_index(pd.Series([month_names[m-1] for m in df.index]))
         elif hue == 'year_month':
             new_index = []
             for c in df.index:
@@ -204,7 +204,7 @@ def put_locale_names(df, x, hue=None):
         df.columns = new_cols
     elif x == 'month':
         df = df.reindex(df.columns, axis=1)
-        df.columns = [month_names[m] for m in df.columns]
+        df.columns = [month_names[m-1] for m in df.columns]
     elif x == 'year_month':
         df = df.reindex(df.columns, axis=1)
         new_cols = []
