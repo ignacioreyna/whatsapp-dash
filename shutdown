@@ -9,7 +9,7 @@ fi
 
 
 if kill $PID ; then
-    echo "Succesfully shutted down"
+    echo "Successfully shutted down"
 else
     echo "Could not shut down"
 fi
