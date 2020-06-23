@@ -176,7 +176,7 @@ def put_locale_names(df, x, hue=None):
     month_names = list(map(lambda name: name.capitalize(), filter(lambda name: name != '', calendar.month_name)))
     if hue:
         if hue == 'dayofweek':
-            df = df.set_index(pd.Series(day_names))
+            df = df.set_index(pd.Series([day_names[dow] for dow in df.index]))
         elif hue == 'year_dayofweek':
             new_index = []
             for c in df.index:
@@ -184,7 +184,7 @@ def put_locale_names(df, x, hue=None):
                 new_index.append(f'{y}-{day_names[int(dow)]}')
             df = df.set_index(pd.Series(new_index))
         elif hue == 'month':
-            df = df.set_index(pd.Series(month_names))
+            df = df.set_index(pd.Series([month_names[m] for m in df.index]))
         elif hue == 'year_month':
             new_index = []
             for c in df.index:
@@ -194,7 +194,7 @@ def put_locale_names(df, x, hue=None):
 
     if x == 'dayofweek':
         df = df.reindex(df.columns, axis=1)
-        df.columns = day_names
+        df.columns = [day_names[dow] for dow in df.columns]
     elif x == 'year_dayofweek':
         df = df.reindex(df.columns, axis=1)
         new_cols = []
@@ -204,7 +204,7 @@ def put_locale_names(df, x, hue=None):
         df.columns = new_cols
     elif x == 'month':
         df = df.reindex(df.columns, axis=1)
-        df.columns = month_names
+        df.columns = [month_names[m] for m in df.columns]
     elif x == 'year_month':
         df = df.reindex(df.columns, axis=1)
         new_cols = []
