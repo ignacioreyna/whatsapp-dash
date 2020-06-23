@@ -2,6 +2,7 @@ aniso8601==8.0.0
 Brotli==1.0.7
 click==7.1.2
 dash==1.12.0
+dash-bootstrap-components==0.10.2
 dash-component-unload==0.0.2
 dash-core-components==1.10.0
 dash-html-components==1.0.3
