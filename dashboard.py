@@ -101,47 +101,46 @@ app.layout = html.Div(
         html.Hr(),
         dcc.Store(id='session-id', storage_type='session'),
         dcc.Store(id='curr_filename', storage_type='session'),
-        html.Div([
-            dbc.Spinner(id="loading",
-                        spinner_style={"width": "8rem", "height": "8rem"},
-                        color='primary',
-                        children=[
-                            html.Div(
-                                className='row mx-auto',
-                                children=[
-                                    html.Div(
-                                        id='xaxis-columns-wrapper',
-                                        className='col-xl-3 offset-xl-3 col-md-5 offset-md-1 col-sm-6 mb-3',
-                                        children=[dcc.Dropdown(
-                                            id='xaxis-columns',
-                                            className='d-none')],
-                                    ),
-                                    html.Div(
-                                        id='yaxis-columns-wrapper',
-                                        className='col-xl-3 col-md-5 col-sm-6 mb-3',
-                                        children=[dcc.Dropdown(
-                                            id='yaxis-columns',
-                                            className='d-none')],
-                                    )]),
-                            html.Div(
-                                className='row mx-auto',
-                                children=[
-                                    html.Div(
-                                        id='optionals_dropdown_wrapper',
-                                        className='col-md-6 mb-3  mx-auto',
-                                        children=[
-                                            dcc.Dropdown(
-                                                id='optionals_dropdown',
-                                                className='d-none'
-                                            )
-                                        ]
-                                    )
-                                ]
-                            ),
-                            html.Div(id='graph'),
-                        ]
+        html.Div(
+            children=[
+                html.Div(
+                    className='row mx-auto',
+                    children=[
+                        html.Div(
+                            id='xaxis-columns-wrapper',
+                            className='col-xl-3 offset-xl-3 col-md-5 offset-md-1 col-sm-6 mb-3',
+                            children=[dcc.Dropdown(
+                                id='xaxis-columns',
+                                className='d-none')],
+                        ),
+                        html.Div(
+                            id='yaxis-columns-wrapper',
+                            className='col-xl-3 col-md-5 col-sm-6 mb-3',
+                            children=[dcc.Dropdown(
+                                id='yaxis-columns',
+                                className='d-none')],
+                        )]),
+                html.Div(
+                    className='row mx-auto',
+                    children=[
+                        html.Div(
+                            id='optionals_dropdown_wrapper',
+                            className='col-md-6 mb-3  mx-auto',
+                            children=[
+                                dcc.Dropdown(
+                                    id='optionals_dropdown',
+                                    className='d-none'
+                                )
+                            ]
                         )
-        ]),
+                    ]
+                ),
+                dbc.Spinner(id="loading",
+                            spinner_style={"width": "8rem", "height": "8rem"},
+                            color='primary',
+                            children=html.Div(id='graph')),
+            ]
+        ),
         html.Div(id='page-listener-dummy'),
         dcu.DashComponentUnload(id='page-listener'),
     ]
@@ -162,12 +161,14 @@ def parse_contents(contents):
     Output('session-id', 'data'),
     Output('curr_filename', 'data'),
     Output('instructions', 'children'),
+    Output('loading', 'children'),
     Output('error_parsing', 'children')],
     [Input('datatable-upload', 'contents')],
     [State('datatable-upload', 'filename'),
      State('session-id', 'data')]
 )
 def update_output(contents, new_filename, sessionid):
+    graph = html.Div(id='graph')
     if contents is None:
         sessionid = None
         filename = None
@@ -176,7 +177,8 @@ def update_output(contents, new_filename, sessionid):
                                       href='https://faq.whatsapp.com/android/chats/how-to-save-your-chat-history?lang=es',
                                       target="_blank"))]
         error = None
-        return sessionid, filename, instructions, error
+
+        return sessionid, filename, instructions, graph, error
 
     df = parse_contents(contents)
     if df is None:
@@ -184,7 +186,7 @@ def update_output(contents, new_filename, sessionid):
                                    u'Ocurrió un error! Por favor intentá de nuevo. Si el error persiste, contactate a ',
                                    html.A('iganre@gmail.com', href='mailto:iganre@gmail.com')],
                          style={'textAlign': 'center', 'fontSize': 30})
-        return sessionid, None, None, error
+        return sessionid, None, None, graph, error
 
     sessionid = str(uuid.uuid4()) if not sessionid else sessionid
 
@@ -196,6 +198,7 @@ def update_output(contents, new_filename, sessionid):
     return (sessionid,
             new_filename,
             instructions,
+            graph,
             error)
 
 
