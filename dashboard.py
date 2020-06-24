@@ -239,7 +239,9 @@ def plot(df, hue, y, should_group_by_author, should_group_by_year, is_normalized
         showlegend=x == 'author',
         hovermode='closest',
         title=dict(
-            text=filename[:-4],
+            text=(' '.join(filename.split()[:3] + ['<br>'] + filename.split()[3:])
+                  if len(filename.split()) > 3
+                  else filename)[:-4],
             x=0.5,
             xanchor='center',
             font=dict(
