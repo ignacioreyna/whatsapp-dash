@@ -4,3 +4,6 @@
 * `cd whatsapp-dash`
 * `pip install -r requirements.txt`
 * `python dashboard.py`
+---
+
+Website at `https://whatstat.site`
