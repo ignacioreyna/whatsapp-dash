@@ -6,4 +6,4 @@
 * `python dashboard.py`
 ---
 
-Website at `https://whatstat.site`
+Website at [https://whatstat.site]
