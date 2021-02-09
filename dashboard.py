@@ -393,10 +393,18 @@ def delete_cache(close, sessionid):
     return None
 
 
-is_prod = 'PORT' in os.environ and os.getenv('PORT') in ['80', '443']
+port = os.getenv('PORT', None)
+is_prod = port and port in ['80', '443']
 context = None
-if os.getenv('PORT', None) == '443':
+if port == '443':
     context = ('keys/fullchain.pem', 'keys/privkey.pem')
 
+
+server = app.server
+
 if __name__ == '__main__':
-    app.run_server(debug=not is_prod, ssl_context=context)
+    app.run_server(
+        debug=not is_prod, 
+        ssl_context=context, 
+        port=port or 3000
+    )
