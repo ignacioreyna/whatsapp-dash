@@ -1,5 +1,4 @@
 import os
-import sys
 import logging
 import base64
 import uuid
@@ -15,18 +14,6 @@ import plotly.graph_objects as go
 import pandas as pd
 
 from utils import get_df_from_content, get_df_for_plotting, showable_dimensions_dict, metrics_dict
-
-from apscheduler.schedulers.blocking import BlockingScheduler
-from delete_cache import delete_cached_files
-
-sched = BlockingScheduler()
-
-@sched.scheduled_job('interval', hours=1)
-def timed_delete_cache():
-    delete_cached_files()
-
-
-sched.start()
 
 
 logging.basicConfig(
