@@ -20,7 +20,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 TEN_MB = 1024 * 1024 * 10
-CURR_DIR = '/'.join(sys.argv[0].split('/')[:-1])
+CURR_DIR = os.path.dirname(os.path.realpath(__file__))
 
 colors = [
     '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b',
