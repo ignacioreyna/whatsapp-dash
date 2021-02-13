@@ -1,6 +1,9 @@
-import sys
 import os
 from datetime import datetime, timedelta
+from apscheduler.schedulers.blocking import BlockingScheduler
+
+
+sched = BlockingScheduler()
 
 
 def is_old(age):
@@ -8,12 +11,13 @@ def is_old(age):
     return age > TWO_HOURS
 
 
+@sched.scheduled_job('interval', hours=1)
 def delete_cached_files():
     '''
     This will run just in case dash-component-unload 
-    misses to catch some beforeunload events.
+    misses to catch some beforeUnload events.
     '''
-    CURR_DIR = '/'.join(sys.argv[0].split('/')[:-1])
+    CURR_DIR = os.path.dirname(os.path.realpath(__file__))
     CACHE_DIR = os.path.join(CURR_DIR, 'cache')
     
     for _, _, files in os.walk(CACHE_DIR):
@@ -23,3 +27,6 @@ def delete_cached_files():
             file_age = (datetime.now() - last_modification).total_seconds()
             if is_old(file_age):
                 os.remove(full_dir)
+
+
+sched.start()
