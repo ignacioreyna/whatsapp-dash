@@ -23,6 +23,3 @@ def delete_cached_files():
             file_age = (datetime.now() - last_modification).total_seconds()
             if is_old(file_age):
                 os.remove(full_dir)
-
-
-delete_cached_files()
